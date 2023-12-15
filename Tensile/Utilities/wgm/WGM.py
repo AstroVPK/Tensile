@@ -115,28 +115,47 @@ class Problem:
     def getCustomNewWorkGroup(self, wg):
         extras = dict()
 
-        nWG = self.MOverMT0*self.NOverMT1 # WG
+        numWG = self.MOverMT0*self.NOverMT1 # WG
+        numWGRounds = math.ceil(numWG/self.GPU.numCUs) # Round
 
         wgPerBlockM = 4 # WG/Block
         wgPerBlockN = 9 # WG/Block
         wgPerBlock = wgPerBlockM*wgPerBlockN # WG/Block
 
-        nBlocksM = self.MOverMT0//wgPerBlockM # Block
-        nBlocksN = self.NOverMT1//wgPerBlockN # Block
-        nBlocks = nBlocksM*nBlocksN # Block
+        numBlocksM = self.MOverMT0//wgPerBlockM # Block
+        numBlocksN = self.NOverMT1//wgPerBlockN # Block
+        numBlocks = numBlocksM*numBlocksN # Block
 
-        nWGInBlocks = wgPerBlock*nBlocks # WG
-        nWGInEdges = nWG - nWGInBlocks # WG
+        numWGInBlocks = wgPerBlock*numBlocks # WG
+        numWGInEdges = numWG - numWGInBlocks # WG
 
-        blockLimM = nBlocksM*wgPerBlockM # WG
-        blockLimN = nBlocksN*wgPerBlockN # WG
+        blockLimM = numBlocksM*wgPerBlockM # WG
+        blockLimN = numBlocksN*wgPerBlockN # WG
 
-        wgSerial = wg[1]*self.MOverMT0 + wg[0]
+        # Compute the serialized workgroup ID
+        wgID = wg[1]*self.MOverMT0 + wg[0] # WG
 
-        wgSerialWithinRound = wgSerial%self.GPU.numCUs
+        # Compute the wgRound & the serialzied wgID within the wgRound
+        wgRound = wgID//self.GPU.numCUs # Round
+        wgRoundID = wgID%self.GPU.numCUs # WG
 
-        if wgSerialWithinRound%self.GPU.numCUsPerXCD <= nWGInBlocksPerRound:
-            wgSerialDechunked = 1
+        # Check if the wg is within the blockWG area or the edgeWG area
+        if wgRoundID//numWGInBlocks == 0:
+            # Compute the wgBlock & the serialized wgID within the block
+            wgBlock = wgRoundID//wgPerBlock # Block
+            wgBlockID = wgRoundID%wgPerBlock # WG
+
+            blockN = blockSerial//nBlocksM
+            blockM = blockSerial%nBlocksM
+            blockWGOffset = blockSerial*wgPerBlock
+            wgWithin = wgSerialWithinRound - blockWGOffset
+            wgWithinN = wgWithin//wgPerBlockN
+            wgWithinM = wgWithin%wgPerBlockN
+            new_wgN = wgWithinN + blockN*wgPerBlockN
+            new_wgM = wgWithinM + blockM*wgPerBlockM
+        else:
+
+
 
         return wg_new, extras
 
