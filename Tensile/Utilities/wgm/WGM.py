@@ -114,9 +114,53 @@ class Problem:
 
     def getCustomNewWorkGroup(self, wg):
         extras = dict()
+        
+        numWG = self.MOverMT0*self.NOverMT1
+        wgPerBlockM = 9 # WG
+        wgPerBlockN = 4 # WG
+        numWGPerBlock = wgPerBlockM*wgPerBlockN # WG
+
+        numBlocksM = self.MOverMT0//wgPerBlockM # Block
+        numBlocksN = self.NOverMT1//wgPerBlockN # Block
+        numBlocks = numBlocksM*numBlocksN # Block        
+
+        numWGInBlocks = numWGPerBlock*numBlocks # WG
+        numWGInEdges = numWG - numWGInBlocks # WG
+
+        blockLimM = numBlocksM*wgPerBlockM # WG
+        blockLimN = numBlocksN*wgPerBlockN # WG
+
+        # Compute the serialized workgroup ID
+        wgID = wg[1]*self.MOverMT0 + wg[0] # WG
+        extras['wgID'] = wgID
+
+        if wgID < numWGInBlocks:
+            # wg is a blockWG
+            wgIDDechunked = (wgID%self.GPU.numXCDs)*numWGPerBlock + (wgID//self.GPU.numXCDs)
+            extras['wgIDDechunked'] = wgIDDechunked
+            blockID = wgIDDechunked//numWGPerBlock
+            blockM = blockID%wgPerBlockN
+            blockN = blockID//wgPerBlockN
+            print('(%d, %d) -> %d -> %d -> %d -> (%d, %d)'%(wg[0], wg[1], wgID, wgIDDechunked, blockID, blockM, blockN))
+            wgBlockOffsetM = blockM*wgPerBlockM
+            wgBlockOffsetN = blockN*wgPerBlockN
+            wgBlockID = wgIDDechunked%numWGPerBlock
+            wgM = wgBlockID%wgPerBlockM
+            wgN = wgBlockID//wgPerBlockM
+            wg_new = (wgM + wgBlockOffsetM, wgN + wgBlockOffsetN)
+        else:
+            # wg is an edgeWG
+            extras['wgIDDechunked'] = 0
+            wg_new = (304, 304)
+        return wg_new, extras
+
+    '''
+    def getCustomNewWorkGroupFull(self, wg):
+        extras = dict()
 
         numWG = self.MOverMT0*self.NOverMT1 # WG
-        numWGRounds = math.ceil(numWG/self.GPU.numCUs) # Round
+        numFullRounds = numWG//self.GPU.numCUs # Round
+        numPartialRounds = numWG%self.GPU.numCUs # Round
 
         wgPerBlockM = 4 # WG/Block
         wgPerBlockN = 9 # WG/Block
@@ -156,8 +200,8 @@ class Problem:
         else:
 
 
-
         return wg_new, extras
+        '''
 
     def getHitRatesFast(self):
         # Original Hit Rate Function - correct but deos not account for finite L2 & MALL capacity 
@@ -489,10 +533,10 @@ class Problem:
                 cx = rx + wg.new_rect.get_width()/2.0
                 cy = ry + wg.new_rect.get_height()/2.0
                 if full_annotation:
-                    if 'wgSet' in wg.extras.keys():
-                        ax.annotate('%d,%d -> %d,%d\nXCD %d CU %d\n%d;%d\n%d,%d'%(wg.m, wg.n, wg.new_m, wg.new_n, wg.xcd, wg.cu, wg.extras['wgSet'], wg.extras['wgSerial'], wg.extras['X'], wg.extras['Y']), (cx, cy), color='k', fontsize=8, ha='center', va='center')
+                    if self.customWGM:
+                        ax.annotate('%d,%d -> %d,%d\nXCD%d CU%d\nwgID %d -> %d'%(wg.m, wg.n,wg.new_m, wg.new_n, wg.xcd, wg.cu, wg.extras['wgID'], wg.extras['wgIDDechunked']), (cx, cy), color='k', fontsize=8, ha='center', va='center')
                     else:
-                        ax.annotate('%d,%d -> %d,%d\nXCD %d CU %d'%(wg.m, wg.n,wg.new_m, wg.new_n, wg.xcd, wg.cu), (cx, cy), color='k', fontsize=8, ha='center', va='center')
+                        ax.annotate('%d,%d -> %d,%d\nXCD%d CU%d\n%d;%d\n%d,%d'%(wg.m, wg.n, wg.new_m, wg.new_n, wg.xcd, wg.cu, wg.extras['wgSet'], wg.extras['wgSerial'], wg.extras['X'], wg.extras['Y']), (cx, cy), color='k', fontsize=8, ha='center', va='center')
                 else:
                     ax.annotate('%d,%d\nXCD%d CU%d'%(wg.new_m,wg.new_n, wg.xcd, wg.cu), (cx, cy), color='k', fontsize=8, ha='center', va='center')
         if plot_launch_order:
