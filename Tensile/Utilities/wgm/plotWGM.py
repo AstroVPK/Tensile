@@ -6,8 +6,8 @@ import WGM
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-m", "--M", default=4096, type=int, help="M-dimensionof M x K x N GEMM")
-    parser.add_argument("-n", "--N", default=4864, type=int, help="N-dimensionof M x K x N GEMM")
+    parser.add_argument("-m", "--M", default=2432, type=int, help="M-dimensionof M x K x N GEMM")
+    parser.add_argument("-n", "--N", default=2048, type=int, help="N-dimensionof M x K x N GEMM")
     parser.add_argument("-k", "--K", default=8192, type=int, help="K-dimensionof M x K x N GEMM")
     parser.add_argument("-mt0", "--MT0", default=128, type=int, help="M-dimensionof M x K x N GEMM")
     parser.add_argument("-mt1", "--MT1", default=128, type=int, help="N-dimensionof M x K x N GEMM")
