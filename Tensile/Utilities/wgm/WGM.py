@@ -137,11 +137,9 @@ class Problem:
         if wgID < numWGInBlocks:
             # wg is a blockWG
             wgIDDechunked = (wgID%self.GPU.numXCDs)*numWGPerBlock + (wgID//self.GPU.numXCDs)
-            extras['wgIDDechunked'] = wgIDDechunked
             blockID = wgIDDechunked//numWGPerBlock
-            blockM = blockID%wgPerBlockN
-            blockN = blockID//wgPerBlockN
-            print('(%d, %d) -> %d -> %d -> %d -> (%d, %d)'%(wg[0], wg[1], wgID, wgIDDechunked, blockID, blockM, blockN))
+            blockM = blockID%numBlocksM
+            blockN = blockID//numBlocksM
             wgBlockOffsetM = blockM*wgPerBlockM
             wgBlockOffsetN = blockN*wgPerBlockN
             wgBlockID = wgIDDechunked%numWGPerBlock
@@ -150,8 +148,20 @@ class Problem:
             wg_new = (wgM + wgBlockOffsetM, wgN + wgBlockOffsetN)
         else:
             # wg is an edgeWG
-            extras['wgIDDechunked'] = 0
-            wg_new = (304, 304)
+            wgID -= numWGInBlocks
+            numWGPerBlock = 2 # In the edge, we are only allocating the extra 2 CUs in each XCD, so the effective numWGPerBlock = 2 in this region
+            wgPerBlockN = 2  # Both the extra 2 CUs in each XCD are allocated in a row, so the effective wgPerBlockN = 2 in this region
+            wgIDDechunked = (wgID%self.GPU.numXCDs)*numWGPerBlock + (wgID//self.GPU.numXCDs)
+            blockID = wgIDDechunked//numWGPerBlock
+            blockM = 0
+            blockN = blockID
+            wgBlockOffsetM = numBlocksM*wgPerBlockM # The edge lies at the very top of the output
+            wgBlockOffsetN = blockN*wgPerBlockN
+            wgBlockID = wgIDDechunked%numWGPerBlock
+            wgM = 0
+            wgN = wgBlockID%wgPerBlockN
+            wg_new = (wgM + wgBlockOffsetM, wgN + wgBlockOffsetN)
+        extras['wgIDDechunked'] = wgIDDechunked
         return wg_new, extras
 
     '''
